@@ -1,0 +1,13 @@
+package: github.com/rybit/stupid-server
+import:
+- package: github.com/Sirupsen/logrus
+  version: v0.11.0
+- package: github.com/graarh/golang-socketio
+  subpackages:
+  - transport
+- package: github.com/labstack/echo
+  version: v3.0.1
+  subpackages:
+  - engine/standard
+- package: github.com/spf13/cobra
+- package: github.com/spf13/viper
