@@ -15,7 +15,6 @@ import (
 	io "github.com/graarh/golang-socketio"
 	"github.com/graarh/golang-socketio/transport"
 	"github.com/labstack/echo"
-	"github.com/labstack/echo/engine/standard"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -50,7 +49,7 @@ func run(cmd *cobra.Command, args []string) error {
 	l := logrus.WithField("port", port)
 
 	server := echo.New()
-	server.SetDebug(viper.GetBool("debug"))
+	server.Debug = viper.GetBool("debug")
 	paths, err := cmd.Flags().GetStringSlice("path")
 	if err != nil {
 		return err
@@ -78,21 +77,44 @@ func run(cmd *cobra.Command, args []string) error {
 			"path": parts[0],
 			"code": rspCode,
 		})
-		server.Get(parts[0], func(c echo.Context) error {
-			rspLog.Info("got request")
+		server.GET(parts[0], func(c echo.Context) error {
+			rspLog.WithFields(logrus.Fields{
+				"q": c.QueryString(),
+			}).Info("got request: GET")
+			dumpHeaders(rspLog, c.Request().Header)
+			return c.NoContent(int(rspCode))
+		})
+		server.POST(parts[0], func(c echo.Context) error {
+			rspLog.WithFields(logrus.Fields{
+				"q": c.QueryString(),
+			}).Info("got request: POST")
+			req := c.Request()
+			dumpHeaders(rspLog, req.Header)
+			defer req.Body.Close()
+			bs, err := ioutil.ReadAll(req.Body)
+			if err != nil {
+				rspLog.WithError(err).Warn("failed to extract body")
+			} else {
+				rspLog.Infof("Payload: \n%s", string(bs))
+			}
 			return c.NoContent(int(rspCode))
 		})
 	}
-	server.Get("/*", func(c echo.Context) error {
-		l.WithField("path", c.Request().URL().Path()).Infof("unconfigured path '%s'", c.Request().URL().Path())
+	server.GET("/*", func(c echo.Context) error {
+		l.WithField("path", c.Request().URL.Path).Infof("unconfigured path '%s'", c.Request().URL.Path)
+		return c.NoContent(http.StatusNotFound)
+	})
+	server.POST("/*", func(c echo.Context) error {
+		l.WithField("path", c.Request().URL.Path).Infof("unconfigured path '%s'", c.Request().URL.Path)
 		return c.NoContent(http.StatusNotFound)
 	})
 
 	l.Info("starting the server")
 	if viper.GetString("tlscert") != "" {
-		server.Run(standard.WithTLS(fmt.Sprintf(":%s", port), viper.GetString("tlscert"), viper.GetString("tlskey")))
+		panic("not implemented")
+		//server.Run(standard.WithTLS(fmt.Sprintf(":%s", port), viper.GetString("tlscert"), viper.GetString("tlskey")))
 	} else {
-		server.Run(standard.New(fmt.Sprintf(":%s", port)))
+		server.Start(fmt.Sprintf(":%s", port))
 	}
 
 	return nil
@@ -152,4 +174,8 @@ func getTLS(certFile, keyFile string, caFiles []string) (*tls.Config, error) {
 	}
 
 	return tlsConfig, nil
+}
+
+func dumpHeaders(log *logrus.Entry, h http.Header) {
+	log.Infof("Headers: %+v\n", h)
 }

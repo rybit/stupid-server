@@ -6,8 +6,6 @@ import:
   subpackages:
   - transport
 - package: github.com/labstack/echo
-  version: v3.0.1
-  subpackages:
-  - engine/standard
+  version: v3.2.1
 - package: github.com/spf13/cobra
 - package: github.com/spf13/viper
